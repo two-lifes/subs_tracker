@@ -113,3 +113,17 @@ class FxRate(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (UniqueConstraint("base", "quote"),)
+
+
+class Deployment(Base):
+    """A bot version that started on the server (ok) or failed to start and was rolled back."""
+
+    __tablename__ = "deployments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[str] = mapped_column(String(40))  # git sha
+    title: Mapped[str | None] = mapped_column(String(200))  # commit subject
+    status: Mapped[str] = mapped_column(String(10))  # ok / failed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # None until the owner has been told about it
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -27,6 +27,11 @@ class Config:
     db_path: Path
     # e.g. socks5://user:pass@host:port or http://host:port; None means direct connection
     proxy_url: str | None = None
+    # Baked into the Docker image by CI; empty for local runs
+    app_version: str | None = None
+    app_title: str | None = None
+    # Set by deploy.sh when it rolled back from this version
+    failed_version: str | None = None
 
     @property
     def db_url(self) -> str:
@@ -47,5 +52,15 @@ def load_config() -> Config:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     proxy_url = os.environ.get("PROXY_URL", "").strip() or None
     return Config(
-        bot_token=token, allowed_user_id=allowed_user_id, db_path=db_path, proxy_url=proxy_url
+        bot_token=token,
+        allowed_user_id=allowed_user_id,
+        db_path=db_path,
+        proxy_url=proxy_url,
+        app_version=_optional("APP_VERSION"),
+        app_title=_optional("APP_TITLE"),
+        failed_version=_optional("FAILED_VERSION"),
     )
+
+
+def _optional(name: str) -> str | None:
+    return os.environ.get(name, "").strip() or None

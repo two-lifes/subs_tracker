@@ -13,11 +13,14 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
     TelegramServerError,
 )
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from bot.clock import utcnow
+from bot.db.models import User
 from bot.keyboards.notify import notification_keyboard
 from bot.services.billing import local_today
+from bot.services.deployments import pending_deployments
 from bot.services.notifications import (
     KIND_DUE,
     can_snooze,
@@ -26,7 +29,7 @@ from bot.services.notifications import (
     plan,
     snooze_target,
 )
-from bot.views import notification_text
+from bot.views import deployment_text, notification_text
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +82,28 @@ async def deliver(session_factory: async_sessionmaker, bot: Bot, now: datetime) 
             await session.commit()
 
 
+async def deliver_deployments(session_factory: async_sessionmaker, bot: Bot, now: datetime) -> None:
+    async with session_factory() as session:
+        deployments = await pending_deployments(session)
+        if not deployments:
+            return
+        # A fresh DB has no users until /start; the news waits for them
+        users = list(await session.scalars(select(User)))
+        if not users:
+            return
+        for d in deployments:
+            try:
+                for user in users:
+                    await bot.send_message(user.tg_id, deployment_text(d))
+            except (TelegramForbiddenError, TelegramBadRequest):
+                log.exception("Dropping deployment notice %s", d.id)
+            except (TelegramNetworkError, TelegramRetryAfter, TelegramServerError) as exc:
+                log.warning("Telegram unavailable (%s); will retry", exc)
+                return
+            d.notified_at = now
+            await session.commit()
+
+
 async def tick(
     session_factory: async_sessionmaker, bot: Bot, now: datetime, db_lock: asyncio.Lock
 ) -> None:
@@ -87,6 +112,7 @@ async def tick(
         async with session_factory() as session, session.begin():
             await plan(session, now)
         await deliver(session_factory, bot, now)
+        await deliver_deployments(session_factory, bot, now)
 
 
 async def run_scheduler(

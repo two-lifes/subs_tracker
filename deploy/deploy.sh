@@ -52,8 +52,9 @@ if wait_ready "$STARTED"; then
     echo "$TAG" > .deployed_tag
     echo "Deployed $TAG"
     # Keep the current and the previous image for a quick manual rollback
+    # grep exits 1 when there is nothing to remove (e.g. the first deploy)
     docker images "$IMAGE" --format '{{.Tag}}' \
-        | grep -vxF -e "$TAG" -e "${PREV_TAG:-$TAG}" \
+        | { grep -vxF -e "$TAG" -e "${PREV_TAG:-$TAG}" || true; } \
         | xargs -r -I{} docker rmi "$IMAGE:{}"
     exit 0
 fi
@@ -66,7 +67,7 @@ if [ -n "$PREV_TAG" ]; then
     if [ -n "$BACKUP" ]; then
         cp "$BACKUP" data/subs.db
     fi
-    IMAGE_TAG="$PREV_TAG" docker compose up -d
+    IMAGE_TAG="$PREV_TAG" FAILED_VERSION="$TAG" docker compose up -d
     echo "Rolled back to $PREV_TAG" >&2
 fi
 exit 1

@@ -25,4 +25,5 @@ the sessionmaker is passed as workflow data (`dp["sessionmaker"]`).
 - Get the current time only via `bot.clock.utcnow()` / `user_today()`; tests swap it with `set_clock`.
 - SQLite drops tzinfo: store every datetime as UTC, read back with `as_utc()`.
 - All bot-initiated messages go through the `notifications` table (`bot/services/notifications.py`
-  plans, `bot/scheduler.py` delivers); never send reminders directly.
+  plans, `bot/scheduler.py` delivers); never send reminders directly. Deploy notices likewise go
+  through the `deployments` table (`bot/services/deployments.py`).

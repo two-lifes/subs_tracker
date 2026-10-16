@@ -48,11 +48,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read commit subject
+        id: commit
+        run: echo "title=$(git log -1 --format=%s)" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v7
         with:
           context: .
           target: runtime
           push: true
+          # The bot reports its version to the owner after a successful deploy
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            APP_TITLE=${{ steps.commit.outputs.title }}
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest

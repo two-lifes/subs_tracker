@@ -11,9 +11,11 @@ from alembic import command
 from alembic.config import Config as AlembicConfig
 
 from bot.app import build_dispatcher
+from bot.clock import utcnow
 from bot.config import Config, ConfigError, load_config
 from bot.db.session import create_engine, create_sessionmaker
 from bot.scheduler import run_scheduler
+from bot.services.deployments import record_startup
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +31,11 @@ def run_migrations(config: Config) -> None:
 async def main(config: Config) -> None:
     engine = create_engine(config.db_url)
     sessionmaker = create_sessionmaker(engine)
+    async with sessionmaker() as db, db.begin():
+        await record_startup(
+            db, config.app_version, config.app_title, config.failed_version, utcnow()
+        )
+    log.info("Version: %s", config.app_version or "local")
 
     session = AiohttpSession(proxy=config.proxy_url) if config.proxy_url else None
     bot = Bot(

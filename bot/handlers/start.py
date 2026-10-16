@@ -4,14 +4,17 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.db.models import User
+from bot.handlers.common import show
 from bot.handlers.menu import menu_router
 from bot.keyboards.menu import BTN_SETTINGS, currency_keyboard, main_menu, timezone_keyboard
 from bot.services.dates import parse_offsets, parse_time
+from bot.services.deployments import list_deployments
 from bot.services.money import parse_currency
 from bot.services.tz import parse_timezone
-from bot.views import format_offsets
+from bot.views import deployments_text, format_offsets
 
 router = Router(name="start")
 
@@ -49,6 +52,7 @@ def _settings_keyboard():
     builder.button(text="Валюта", callback_data="settings:currency")
     builder.button(text="Дни напоминаний", callback_data="settings:offsets")
     builder.button(text="Время напоминаний", callback_data="settings:time")
+    builder.button(text="🔄 Обновления", callback_data="settings:updates")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -81,6 +85,23 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
 async def cmd_settings(message: Message, user: User, state: FSMContext) -> None:
     await state.clear()
     await message.answer(settings_text(user), reply_markup=_settings_keyboard())
+
+
+@router.callback_query(F.data == "settings:updates")
+async def settings_updates(callback: CallbackQuery, session: AsyncSession, user: User) -> None:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="« Настройки", callback_data="settings:back")
+    deployments = await list_deployments(session)
+    await show(callback, deployments_text(deployments, user.timezone or "UTC"),
+               builder.as_markup())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "settings:back")
+async def settings_back(callback: CallbackQuery, state: FSMContext, user: User) -> None:
+    await state.clear()
+    await show(callback, settings_text(user), _settings_keyboard())
+    await callback.answer()
 
 
 @router.callback_query(F.data == "settings:tz")

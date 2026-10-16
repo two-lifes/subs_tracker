@@ -4,12 +4,14 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 from html import escape
+from zoneinfo import ZoneInfo
 
-from bot.db.models import Payment, Subscription, User
+from bot.db.models import Deployment, Payment, Subscription, User
 from bot.services.billing import PeriodUnit, monthly_amount
 from bot.services.dates import relative_days
+from bot.services.deployments import STATUS_OK
 from bot.services.money import format_amount
-from bot.services.notifications import is_overdue
+from bot.services.notifications import as_utc, is_overdue
 
 _SINGLE = {
     PeriodUnit.DAY: "в день",
@@ -151,4 +153,34 @@ def payments_text(sub: Subscription, payments: list[Payment]) -> str:
     lines += [
         f"{p.charge_date:%d.%m.%Y} — {format_amount(p.amount_minor, p.currency)}" for p in payments
     ]
+    return "\n".join(lines)
+
+
+def _short(version: str) -> str:
+    return f"<code>{escape(version[:7])}</code>"
+
+
+def deployment_text(d: Deployment) -> str:
+    if d.status == STATUS_OK:
+        title = f" — {escape(d.title)}" if d.title else ""
+        return f"🔄 Бот обновлён: {_short(d.version)}{title}"
+    return f"❌ Обновление {_short(d.version)} не запустилось, работает прежняя версия."
+
+
+def deployments_text(deployments: list[Deployment], tz: str) -> str:
+    """``deployments`` go newest first."""
+    if not deployments:
+        return "<b>Обновления</b>\nИстории пока нет: она ведётся только на сервере."
+    lines = ["<b>Обновления</b>"]
+    current = next((d for d in deployments if d.status == STATUS_OK), None)
+    if current is not None:
+        lines.append(f"Текущая версия: {_short(current.version)}")
+    lines.append("")
+    for d in deployments:
+        when = as_utc(d.created_at).astimezone(ZoneInfo(tz))
+        if d.status == STATUS_OK:
+            status = f"✅ {escape(d.title)}" if d.title else "✅ установлено"
+        else:
+            status = "❌ не запустилось, откат"
+        lines.append(f"{when:%d.%m.%Y %H:%M} {_short(d.version)} {status}")
     return "\n".join(lines)
