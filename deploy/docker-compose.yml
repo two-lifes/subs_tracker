@@ -1,0 +1,16 @@
+# Production compose: copied to the server by CI, runs the image built and tested in CI.
+# Secrets live only in the server's .env next to this file.
+services:
+  bot:
+    image: ghcr.io/two-lifes/subs_tracker:${IMAGE_TAG:-latest}
+    env_file: .env
+    environment:
+      DB_PATH: /data/subs.db
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
