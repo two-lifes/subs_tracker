@@ -61,12 +61,17 @@ jobs:
 
       - name: Configure SSH
         env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          # A key pasted from Windows may carry CRLF line endings, which OpenSSH rejects
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
+          if ! ssh-keygen -y -P '' -f ~/.ssh/id_deploy > /dev/null; then
+            echo "::error::SSH_PRIVATE_KEY is not a valid passphrase-less OpenSSH private key"
+            exit 1
+          fi
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
 
       - name: Deploy

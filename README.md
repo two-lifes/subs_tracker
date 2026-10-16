@@ -33,7 +33,7 @@ copy .env.example .env   # заполнить BOT_TOKEN, ALLOWED_USER_ID, PROXY_
 ### Настройка GitHub (Settings → Secrets and variables → Actions)
 Secrets:
 - `SSH_HOST`, `SSH_USER` (`deploy`), `SSH_PORT` (если не 22);
-- `SSH_KEY` — приватный ключ, публичная часть в `~deploy/.ssh/authorized_keys`;
+- `SSH_PRIVATE_KEY` — приватный ключ, публичная часть в `~deploy/.ssh/authorized_keys`;
 - `SSH_KNOWN_HOSTS` — вывод `ssh-keyscan -p <порт> <хост>`.
 
 Variables:
