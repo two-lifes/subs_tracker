@@ -264,7 +264,7 @@ async def save(
     await callback.message.answer(
         "✅ Добавлено.\n\n" + sub_card(sub, user, today), reply_markup=card_keyboard(sub, today)
     )
-    await callback.message.answer("Что дальше?", reply_markup=main_menu())
+    await callback.message.answer("Одной неожиданностью меньше ✨",reply_markup=main_menu())
 
 
 @router.callback_query(AddSub.confirm, F.data == "add:cancel")
