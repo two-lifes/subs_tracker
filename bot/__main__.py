@@ -7,9 +7,11 @@ from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
+from aiohttp import web
 from alembic import command
 from alembic.config import Config as AlembicConfig
 
+from bot.api import create_app
 from bot.app import build_dispatcher
 from bot.clock import utcnow
 from bot.config import Config, ConfigError, load_config
@@ -26,6 +28,20 @@ def run_migrations(config: Config) -> None:
     # Otherwise alembic.ini's logging config would silence the bot's INFO logs
     alembic_cfg.attributes["configure_logger"] = False
     command.upgrade(alembic_cfg, "head")
+
+
+async def start_api(config: Config) -> web.AppRunner | None:
+    if not config.api_token:
+        log.info("API disabled: API_TOKEN is not set")
+        return None
+    engine = create_engine(config.db_readonly_url)
+    app = create_app(create_sessionmaker(engine), config.api_token, config.api_telegram_id)
+    app.on_cleanup.append(lambda _app: engine.dispose())
+    runner = web.AppRunner(app, access_log=None)
+    await runner.setup()
+    await web.TCPSite(runner, config.api_host, config.api_port).start()
+    log.info("API listening on %s:%s", config.api_host, config.api_port)
+    return runner
 
 
 async def main(config: Config) -> None:
@@ -48,10 +64,13 @@ async def main(config: Config) -> None:
     db_lock = asyncio.Lock()
     dp["db_lock"] = db_lock
 
+    api = await start_api(config)
     scheduler = asyncio.create_task(run_scheduler(sessionmaker, bot, db_lock), name="scheduler")
     try:
         await dp.start_polling(bot)
     finally:
+        if api is not None:
+            await api.cleanup()
         scheduler.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await scheduler

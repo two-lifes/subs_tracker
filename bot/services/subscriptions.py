@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.db.models import Payment, Subscription, User
-from bot.services.billing import PeriodUnit, next_charge_from_today
+from bot.services.billing import PeriodUnit, first_charge_after, next_charge_from_today
 
 
 @dataclass
@@ -152,3 +152,45 @@ async def recent_currencies(session: AsyncSession, user: User, limit: int = 4) -
         .limit(limit)
     )
     return [row.currency for row in rows]
+
+
+def upcoming_charges(sub: Subscription, today: date, until: date) -> list[date]:
+    """Charge dates in ``[today, until]``, stepping the same way the scheduler advances."""
+    unit = PeriodUnit(sub.period_unit)
+    result = []
+    charge = sub.next_charge_date
+    while charge <= until:
+        if charge >= today:
+            result.append(charge)
+        charge = first_charge_after(sub.anchor_date, unit, sub.period_count, charge)
+    return result
+
+
+async def subscriptions_by_status(
+    session: AsyncSession, user_id: int, status: str
+) -> list[Subscription]:
+    return list(
+        await session.scalars(
+            select(Subscription)
+            .where(Subscription.user_id == user_id, Subscription.status == status)
+            .order_by(Subscription.id)
+        )
+    )
+
+
+async def payments_between(
+    session: AsyncSession, user_id: int, start: date, end: date
+) -> list[Payment]:
+    """Payments of all the user's subscriptions (archived too), both bounds inclusive."""
+    return list(
+        await session.scalars(
+            select(Payment)
+            .join(Subscription)
+            .where(
+                Subscription.user_id == user_id,
+                Payment.charge_date >= start,
+                Payment.charge_date <= end,
+            )
+            .order_by(Payment.charge_date, Payment.id)
+        )
+    )

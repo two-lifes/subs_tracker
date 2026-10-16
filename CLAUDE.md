@@ -27,3 +27,5 @@ the sessionmaker is passed as workflow data (`dp["sessionmaker"]`).
 - All bot-initiated messages go through the `notifications` table (`bot/services/notifications.py`
   plans, `bot/scheduler.py` delivers); never send reminders directly. Deploy notices likewise go
   through the `deployments` table (`bot/services/deployments.py`).
+- `bot/api.py` is a read-only HTTP API (aiohttp, same process, `mode=ro` engine). It must reuse
+  `bot/services/` (e.g. `upcoming_charges` steps like `advance()`), never duplicate billing logic.

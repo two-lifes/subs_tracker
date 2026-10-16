@@ -5,6 +5,8 @@ description = "Personal Telegram bot that tracks subscriptions and reminds about
 requires-python = ">=3.12"
 dependencies = [
     "aiogram==3.31.0",
+    # Also installed by aiogram; pinned because the read-only API imports aiohttp.web directly
+    "aiohttp==3.14.5",
     # Required by aiogram's AiohttpSession for proxy support
     "aiohttp-socks==0.12.0",
     "sqlalchemy[asyncio]==2.1.4",
