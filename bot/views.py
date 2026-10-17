@@ -47,28 +47,48 @@ def sub_button_text(sub: Subscription, today: date) -> str:
     return f"{mark}{sub.name} · {sub.next_charge_date:%d.%m}"
 
 
-def _due_line(sub: Subscription, today: date) -> str:
-    when = f"{sub.next_charge_date:%d.%m.%Y}, {relative_days(sub.next_charge_date, today)}"
-    if sub.auto_renew:
-        return f"Следующее списание: {when}"
+def sub_icon(sub: Subscription, today: date) -> str:
+    if sub.status == "archived":
+        return "🗄"
     if is_overdue(sub, today):
-        return f"⚠️ Ждёт оплаты: срок был {when}"
-    return f"Срок оплаты: {when}"
+        return "⚠️"
+    return "💳" if sub.auto_renew else "🧾"
+
+
+def _due_line(sub: Subscription, today: date) -> str:
+    charge = sub.next_charge_date
+    when = f"<b>{charge:%d.%m.%Y}</b>, {relative_days(charge, today)}"
+    if sub.auto_renew:
+        return f"📅 Списание: {when}"
+    if is_overdue(sub, today):
+        return f"⚠️ Ждёт оплаты с {when}"
+    return f"📅 Оплатить до: {when}"
 
 
 def sub_card(sub: Subscription, user: User, today: date) -> str:
-    lines = [f"<b>{escape(sub.name)}</b>", price_line(sub)]
+    paymode = "автоплатёж" if sub.auto_renew else "оплата вручную"
+    lines = [
+        f"{sub_icon(sub, today)} <b>{escape(sub.name)}</b>",
+        f"<b>{format_amount(sub.amount_minor, sub.currency)}</b> "
+        f"{format_period(sub.period_unit, sub.period_count)} · {paymode}",
+    ]
     if sub.status == "archived":
-        lines.append("🗄 В архиве")
+        since = ""
+        if sub.archived_at:
+            local = as_utc(sub.archived_at).astimezone(ZoneInfo(user.timezone or "UTC"))
+            since = f" с {local:%d.%m.%Y}"
+        lines.append(f"В архиве{since}")
     else:
         lines.append(_due_line(sub, today))
-        lines.append("Оплата: " + ("автоплатёж" if sub.auto_renew else "вручную"))
         offsets = sub.remind_offsets if sub.remind_offsets is not None else user.default_offsets
-        lines.append(f"Напоминания: {format_offsets(offsets)}")
+        lines.append(f"🔔 Напоминания: {format_offsets(offsets)}")
+    extra = []
     if sub.category:
-        lines.append(f"Категория: {escape(sub.category)}")
+        extra.append(f"🏷 {escape(sub.category)}")
     if sub.note:
-        lines.append(f"Заметка: {escape(sub.note)}")
+        extra.append(f"📝 {escape(sub.note)}")
+    if extra:
+        lines.append("<blockquote>" + "\n".join(extra) + "</blockquote>")
     return "\n".join(lines)
 
 
@@ -106,20 +126,33 @@ def monthly_totals(subs: list[Subscription]) -> dict[str, Decimal]:
     return dict(totals)
 
 
+# Charges this close are grouped under "Скоро" in the list
+SOON_DAYS = 7
+
+
+def _list_line(sub: Subscription, today: date) -> str:
+    charge = sub.next_charge_date
+    if is_overdue(sub, today):
+        when = f"ждёт оплаты с {charge:%d.%m}"
+    else:
+        when = f"{charge:%d.%m}, {relative_days(charge, today)}"
+    return f"{sub_icon(sub, today)} <b>{escape(sub.name)}</b> — {price_line(sub)}\n      {when}"
+
+
 def list_text(subs: list[Subscription], today: date) -> str:
+    """``subs`` go in charge date order."""
     if not subs:
         return "Подписок пока нет. Нажмите «➕ Добавить»."
-    lines = ["<b>Подписки</b> (по ближайшему списанию)\n"]
-    for sub in subs:
-        overdue = " — ⚠️ ждёт оплаты" if is_overdue(sub, today) else ""
-        lines.append(
-            f"• <b>{escape(sub.name)}</b> — {price_line(sub)}\n"
-            f"   {sub.next_charge_date:%d.%m}, {relative_days(sub.next_charge_date, today)}"
-            f"{overdue}"
-        )
+    soon = [s for s in subs if (s.next_charge_date - today).days <= SOON_DAYS]
+    later = [s for s in subs if s not in soon]
+    lines = [f"📋 <b>Подписки</b> · {len(subs)}"]
+    for title, group in ((f"Скоро, {SOON_DAYS} дней", soon), ("Позже", later)):
+        if group:
+            lines.append(f"\n<b>{title}</b>")
+            lines += [_list_line(s, today) for s in group]
     totals = monthly_totals(subs)
     lines.append(
-        "\nВ среднем в месяц: "
+        "\n<b>В среднем в месяц:</b> "
         + " + ".join(format_amount(v, c) for c, v in sorted(totals.items()))
     )
     return "\n".join(lines)
@@ -127,11 +160,11 @@ def list_text(subs: list[Subscription], today: date) -> str:
 
 def notification_text(kind: str, charge: date, sub: Subscription, today: date) -> str:
     name = f"<b>{escape(sub.name)}</b>"
-    amount = format_amount(sub.amount_minor, sub.currency)
+    amount = f"<b>{format_amount(sub.amount_minor, sub.currency)}</b>"
     if kind == "charged":
         return (
             f"💳 Сегодня списание за {name}: {amount}.\n"
-            f"Следующее — {sub.next_charge_date:%d.%m.%Y}."
+            f"Следующее — <b>{sub.next_charge_date:%d.%m.%Y}</b>."
         )
     if kind == "due":
         if charge < today:
@@ -148,12 +181,16 @@ def notification_text(kind: str, charge: date, sub: Subscription, today: date) -
 
 def payments_text(sub: Subscription, payments: list[Payment]) -> str:
     if not payments:
-        return f"<b>{escape(sub.name)}</b>: платежей пока нет."
-    lines = [f"<b>{escape(sub.name)}</b> — история платежей"]
-    lines += [
-        f"{p.charge_date:%d.%m.%Y} — {format_amount(p.amount_minor, p.currency)}" for p in payments
+        return f"📜 <b>{escape(sub.name)}</b>: платежей пока нет."
+    amounts = [format_amount(p.amount_minor, p.currency) for p in payments]
+    width = max(len(a) for a in amounts)
+    # Monospace block, so amounts line up in a right-aligned column
+    rows = [
+        f"{p.charge_date:%d.%m.%Y}  {a:>{width}}"
+        for p, a in zip(payments, amounts, strict=True)
     ]
-    return "\n".join(lines)
+    title = f"📜 <b>{escape(sub.name)}</b> — история платежей"
+    return f"{title}\n<pre>" + "\n".join(rows) + "</pre>"
 
 
 def _short(version: str) -> str:

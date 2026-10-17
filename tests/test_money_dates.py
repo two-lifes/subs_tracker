@@ -1,9 +1,10 @@
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
 from bot.services.dates import parse_offsets, parse_past_date, relative_days
-from bot.services.money import amount_example, format_amount, parse_amount, split_price
+from bot.services.money import NBSP, amount_example, format_amount, parse_amount, split_price
 
 TODAY = date(2026, 10, 16)
 
@@ -56,10 +57,26 @@ def test_amount_example_matches_currency():
         assert parse_amount(amount_example(code), code) is not None
 
 
-def test_format_amount():
-    assert format_amount(2224, "USD") == "22.24 USD"
-    assert format_amount(123450, "RUB") == "1 234.50 RUB"
-    assert format_amount(990, "JPY") == "990 JPY"
+@pytest.mark.parametrize(
+    ("minor", "currency", "expected"),
+    [
+        (2224, "USD", "22.24 $"),
+        (200000, "RUB", "2 000 ₽"),
+        (123450, "RUB", "1 234.50 ₽"),
+        (1234567, "EUR", "12 345.67 €"),
+        (999, "GBP", "9.99 £"),
+        (500000, "KZT", "5 000 ₸"),
+        (20000, "UAH", "200 ₴"),
+        (990, "JPY", "990 JPY"),  # no symbol and no minor unit
+        (1050, "PLN", "10.50 PLN"),
+        # Averaged prices are Decimals; rounding to a whole amount drops the cents too
+        (Decimal("16666.6667"), "RUB", "166.67 ₽"),
+        (Decimal("199999.6"), "RUB", "2 000 ₽"),
+    ],
+)
+def test_format_amount(minor, currency, expected):
+    # Real output uses non-breaking spaces so Telegram never splits an amount
+    assert format_amount(minor, currency) == expected.replace(" ", NBSP)
 
 
 @pytest.mark.parametrize(

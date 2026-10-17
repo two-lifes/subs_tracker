@@ -91,7 +91,7 @@ async def cmd_archive(
         await message.answer("Архив пуст.")
         return
     await message.answer(
-        "<b>Архив</b> — отменённые подписки:",
+        "🗄 <b>Архив</b> — отменённые подписки:",
         reply_markup=list_keyboard(subs, user_today(user.timezone), archived=True),
     )
 

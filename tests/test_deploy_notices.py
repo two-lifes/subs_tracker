@@ -82,4 +82,4 @@ async def test_settings_show_update_history(h):
         "16.10.2026 15:00 <code>afe3920</code> ✅ Add &lt;deploy&gt; notices",
     ]
     await h.tap("settings:back")
-    assert h.net.last_text().startswith("<b>Настройки</b>")
+    assert h.net.last_text().startswith("⚙️ <b>Настройки</b>")

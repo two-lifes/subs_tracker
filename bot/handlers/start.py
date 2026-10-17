@@ -38,11 +38,11 @@ CURRENCY_PROMPT = (
 
 def settings_text(user: User) -> str:
     return (
-        "<b>Настройки</b>\n"
-        f"Часовой пояс: {user.timezone}\n"
-        f"Основная валюта: {user.base_currency}\n"
-        f"Напоминания по умолчанию: {format_offsets(user.default_offsets)}, "
-        f"в {user.remind_time:%H:%M}"
+        "⚙️ <b>Настройки</b>\n\n"
+        f"🌍 Часовой пояс: <b>{user.timezone}</b>\n"
+        f"💱 Основная валюта: <b>{user.base_currency}</b>\n"
+        f"🔔 Напоминания по умолчанию: {format_offsets(user.default_offsets)}, "
+        f"в <b>{user.remind_time:%H:%M}</b>"
     )
 
 

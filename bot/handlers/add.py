@@ -215,12 +215,13 @@ async def _set_paid_on(message: Message, state: FSMContext, user: User, paid_on:
     )
     await state.set_state(AddSub.confirm)
     await message.answer(
-        f"<b>{escape(data['name'])}</b>\n"
-        f"{format_amount(data['amount_minor'], data['currency'])} "
-        f"{format_period(data['period_unit'], data['period_count'])}\n"
-        f"Оплата: {'автоплатёж' if data['auto_renew'] else 'вручную'}\n"
-        f"Оплачено: {paid_on:%d.%m.%Y}\n"
-        f"Следующая оплата: {next_charge:%d.%m.%Y}, {relative_days(next_charge, today)}",
+        f"{'💳' if data['auto_renew'] else '🧾'} <b>{escape(data['name'])}</b>\n"
+        f"<b>{format_amount(data['amount_minor'], data['currency'])}</b> "
+        f"{format_period(data['period_unit'], data['period_count'])} · "
+        f"{'автоплатёж' if data['auto_renew'] else 'оплата вручную'}\n"
+        f"✅ Оплачено: {paid_on:%d.%m.%Y}\n"
+        f"📅 Следующая оплата: <b>{next_charge:%d.%m.%Y}</b>, "
+        f"{relative_days(next_charge, today)}",
         reply_markup=confirm_keyboard(),
     )
 

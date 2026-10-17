@@ -83,7 +83,7 @@ async def test_reminder_before_charge_is_sent_once(setup):
     await run_at(h, fc, utc(11, 13, 7, 1))  # a later tick must not repeat it
     [msg] = h.net.sent()
     assert "Через 3 дня (16.11)" in msg.text
-    assert "22.24 USD" in msg.text
+    assert "<b>22.24 $</b>" in msg.text
 
 
 async def test_auto_renew_records_payment_and_moves_date(setup):

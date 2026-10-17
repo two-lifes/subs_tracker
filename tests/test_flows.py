@@ -101,7 +101,7 @@ async def test_edit_prompts_show_current_values(h):
 
     expected = {
         "name": "Сейчас: <code>Claude &lt;Code&gt;</code>.",
-        "amount": "Сейчас: 22.34 USD.",
+        "amount": "Сейчас: 22.34 $.",
         "currency": "Сейчас: USD.",
         "period": "Сейчас: в месяц.",
         "paid_on": f"Сейчас: последняя оплата {today:%d.%m.%Y}.",
@@ -173,7 +173,10 @@ async def test_buttons_work_on_inaccessible_messages(h):
     await h.tap(SubCb(action="open", id=sub.id).pack(), inaccessible=True)
     await h.tap(SubCb(action="archive", id=sub.id).pack(), inaccessible=True)
 
-    assert [m.text.split("\n")[0] for m in h.net.sent()] == ["<b>Claude Code</b>"] * 2
+    assert [m.text.split("\n")[0] for m in h.net.sent()] == [
+        "💳 <b>Claude Code</b>",
+        "🗄 <b>Claude Code</b>",  # the card after archiving
+    ]
     [sub] = await h.subs()
     assert sub.status == "archived"
 

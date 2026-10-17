@@ -72,8 +72,15 @@ def parse_amount(text: str, currency: str) -> int | None:
     return int(minor)
 
 
+_SIGNS = {code: sign for sign, code in _SYMBOLS.items()}
+# Non-breaking, so Telegram never wraps "2 000 ₽" across lines
+NBSP = "\u00a0"
+
+
 def format_amount(minor: int | Decimal, currency: str) -> str:
+    """'2 000 ₽', '22.24 $', '990 JPY': cents only when there are any."""
     exp = exponent(currency)
     value = Decimal(minor).scaleb(-exp).quantize(Decimal(1).scaleb(-exp), ROUND_HALF_UP)
-    text = f"{value:,.{exp}f}".replace(",", " ")
-    return f"{text} {currency}"
+    places = 0 if value == value.to_integral_value() else exp
+    text = f"{value:,.{places}f}".replace(",", NBSP)
+    return f"{text}{NBSP}{_SIGNS.get(currency, currency)}"
