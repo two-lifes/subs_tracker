@@ -8,13 +8,13 @@ services:
       DB_PATH: /data/subs.db
       # Set by deploy.sh on rollback so the bot can report the failed version
       FAILED_VERSION: ${FAILED_VERSION:-}
-      # Reachable only from containers on the subs_api network; no port is published to the host
+      # Reachable only from containers on the bots_internal network; no port is published to the host
       API_HOST: 0.0.0.0
     volumes:
       - ./data:/data
     networks:
       default:
-      subs_api:
+      bots_internal:
         aliases: [subs-api]
     restart: unless-stopped
     logging:
@@ -24,6 +24,6 @@ services:
         max-file: "3"
 
 networks:
-  subs_api:
-    # Fixed name so the finance bot's compose can join it as an external network
-    name: subs_api
+  bots_internal:
+    # Shared with the finance bot; deploy.sh creates it if missing
+    external: true

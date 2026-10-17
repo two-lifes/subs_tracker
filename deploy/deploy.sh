@@ -12,6 +12,8 @@ cd "$(dirname "$0")"
 [ -f .env ] || { echo "No .env in $PWD" >&2; exit 1; }
 mkdir -p data backups
 PREV_TAG=$(cat .deployed_tag 2>/dev/null || true)
+# Shared with the finance bot and declared external, so compose won't start without it
+docker network inspect bots_internal > /dev/null 2>&1 || docker network create bots_internal
 
 # Pull first, so the bot is down only for the restart itself
 IMAGE_TAG="$TAG" docker compose pull

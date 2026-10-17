@@ -38,20 +38,20 @@ the log shows `API listening on 127.0.0.1:8080`.
 
 On the server: add `API_TOKEN` to `/opt/subs_tracker/.env`; the next deploy (or
 `docker compose up -d`) starts the API. No port is published to the host: the API is reachable
-only from containers on the docker network `subs_api` at `http://subs-api:8080`. The finance
-bot's `docker-compose.yml` joins it:
+only from containers on the external docker network `bots_internal` at `http://subs-api:8080`
+(`deploy.sh` creates the network if it is missing). The finance bot's `docker-compose.yml`
+joins the same network:
 ```yaml
 services:
   finance:
     # ...
-    networks: [default, subs_api]
+    networks: [bots_internal]
 networks:
-  subs_api:
+  bots_internal:
     external: true
 ```
-The network is created by this bot's `docker compose up`, so start this bot first.
 Check from the server:
-`docker run --rm --network subs_api curlimages/curl -s -H "Authorization: Bearer $TOKEN" http://subs-api:8080/api/v1/health`
+`docker run --rm --network bots_internal curlimages/curl -s -H "Authorization: Bearer $TOKEN" http://subs-api:8080/api/v1/health`
 
 If the finance bot ever runs on another server, do not expose the port directly. Use either
 - a reverse proxy with HTTPS, e.g. Caddy with automatic Let's Encrypt certificates
